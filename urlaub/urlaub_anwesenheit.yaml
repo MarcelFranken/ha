@@ -16,21 +16,35 @@ blueprint:
   input:
     vacation_helper:
       name: Urlaubs/Umschalt-Helfer (Input Boolean)
-      selector: { entity: { domain: input_boolean } }
+      selector:
+        entity:
+          domain: input_boolean
 
     covers_morning:
       name: Jalousien für morgens (öffnen)
-      selector: { target: { entity: { domain: cover, multiple: true } } }
+      selector:
+        target:
+          entity:
+            domain: cover
       default: []
 
     covers_evening:
       name: Jalousien für abends (schließen)
-      selector: { target: { entity: { domain: cover, multiple: true } } }
+      selector:
+        target:
+          entity:
+            domain: cover
       default: []
 
     cover_gap_seconds:
       name: Wartezeit zwischen Jalousien (Sekunden)
-      selector: { number: { min: 0, max: 900, step: 5, mode: slider, unit_of_measurement: s } }
+      selector:
+        number:
+          min: 0
+          max: 900
+          step: 5
+          mode: slider
+          unit_of_measurement: s
       default: 30
 
     morning_window_start:
@@ -58,295 +72,35 @@ blueprint:
 
     weather_covers:
       name: Jalousien für Wetter-Logik
-      selector: { target: { entity: { domain: cover, multiple: true } } }
+      selector:
+        target:
+          entity:
+            domain: cover
       default: []
 
     weather_entity:
       name: Wetter-Entity (weather.*) – optional
-      selector: { entity: { domain: weather } }
+      selector:
+        entity:
+          domain: weather
       default: ""
 
     outdoor_temp:
       name: Außentemperatur-Sensor – optional
-      selector: { entity: { domain: sensor } }
+      selector:
+        entity:
+          domain: sensor
       default: ""
 
     illuminance_sensor:
       name: Helligkeit/Lux-Sensor – optional
-      selector: { entity: { domain: sensor } }
+      selector:
+        entity:
+          domain: sensor
       default: ""
 
     temp_close_threshold:
       name: Schließen ab Temperatur (°C)
-      selector: { number: { min: 10, max: 50, step: 0.5, unit_of_measurement: °C, mode: slider } }
-      default: 26
-    temp_reopen_threshold:
-      name: Wieder öffnen unter Temperatur (°C)
-      selector: { number: { min: 5, max: 40, step: 0.5, unit_of_measurement: °C, mode: slider } }
-      default: 23
-
-    lux_close_threshold:
-      name: Schließen ab Helligkeit (Lux)
-      selector: { number: { min: 0, max: 120000, step: 1000, unit_of_measurement: lx, mode: slider } }
-      default: 25000
-
-    sun_min_elevation:
-      name: Mindest-Sonnenhöhe für Wetter-Schließen (Grad)
-      selector: { number: { min: -10, max: 90, step: 1, unit_of_measurement: ° } }
-      default: 10
-
-    reopen_mode:
-      name: Wieder-Öffnungsmodus
       selector:
-        select:
-          options:
-            - { label: Komplett öffnen, value: open_fully }
-            - { label: Auf 50% anheben, value: open_half }
-      default: open_fully
-
-    lights_evening:
-      name: Licht-Entitäten für Abend-Simulation
-      selector: { target: { entity: { domain: light, multiple: true } } }
-      default: []
-
-    light_min_minutes:
-      name: Lichtdauer Minimum (Minuten)
-      selector: { number: { min: 1, max: 240, step: 1, unit_of_measurement: min, mode: slider } }
-      default: 15
-    light_max_minutes:
-      name: Lichtdauer Maximum (Minuten)
-      selector: { number: { min: 5, max: 240, step: 5, unit_of_measurement: min, mode: slider } }
-      default: 60
-    light_chance_percent:
-      name: Einschalt-Wahrscheinlichkeit pro Licht (%)
-      selector: { number: { min: 0, max: 100, step: 5, unit_of_measurement: "%"} }
-      default: 60
-
-    # --- NEU: Benachrichtigungen ---
-    enable_notifications:
-      name: Benachrichtigungen aktivieren
-      description: Wenn EIN, werden Statusmeldungen über den unten angegebenen notify-Service versendet.
-      selector: { boolean: {} }
-      default: false
-
-    notify_service:
-      name: Notify-Service (z. B. notify.smarthome_gruppe)
-      description: Vollständiger Service-Name aus Entwicklerwerkzeugen → Dienste.
-      selector:
-        text:
-          multiline: false
-      default: "notify.notify"
-
-mode: restart
-max_exceeded: silent
-
-variables:
-  helper: !input vacation_helper
-
-  morning_start: !input morning_window_start
-  morning_end: !input morning_window_end
-  evening_start: !input evening_window_start
-  evening_end: !input evening_window_end
-
-  cover_gap: !input cover_gap_seconds
-
-  morning_window_len: "{{ (as_timestamp(today_at(morning_end)) - as_timestamp(today_at(morning_start))) | int(0) }}"
-  evening_window_len: "{{ (as_timestamp(today_at(evening_end)) - as_timestamp(today_at(evening_start))) | int(0) }}"
-  morning_random_delay: "{{ iif(morning_window_len>0, range(0, morning_window_len) | random, 0) }}"
-  evening_random_delay: "{{ iif(evening_window_len>0, range(0, evening_window_len) | random, 0) }}"
-
-  enable_weather: !input enable_day_weather_close
-  weather_entity_id: !input weather_entity
-  outdoor_temp_id: !input outdoor_temp
-  illuminance_sensor_id: !input illuminance_sensor
-  close_temp: !input temp_close_threshold
-  reopen_temp: !input temp_reopen_threshold
-  close_lux: !input lux_close_threshold
-  min_elev: !input sun_min_elevation
-  reopen_mode: !input reopen_mode
-
-  light_min: !input light_min_minutes
-  light_max: !input light_max_minutes
-  light_chance: !input light_chance_percent
-
-  # Listen für Namen in Benachrichtigungen
-  morning_covers_list: !input covers_morning
-  evening_covers_list: !input covers_evening
-  weather_covers_list: !input weather_covers
-  morning_covers_names: "{{ expand(morning_covers_list) | map(attribute='name') | list | join(', ') if (expand(morning_covers_list)|list)|length>0 else '–' }}"
-  evening_covers_names: "{{ expand(evening_covers_list) | map(attribute='name') | list | join(', ') if (expand(evening_covers_list)|list)|length>0 else '–' }}"
-  weather_covers_names: "{{ expand(weather_covers_list) | map(attribute='name') | list | join(', ') if (expand(weather_covers_list)|list)|length>0 else '–' }}"
-
-  # Notify
-  notify_on: !input enable_notifications
-  notify_srv: !input notify_service
-
-trigger:
-  - platform: time
-    at: !input morning_window_start
-    id: morning
-
-  - platform: time
-    at: !input evening_window_start
-    id: evening
-
-  - platform: time_pattern
-    minutes: "/15"
-    id: weather_tick
-
-condition:
-  - condition: state
-    entity_id: !input vacation_helper
-    state: "on"
-
-action:
-  - choose:
-
-      # --- MORGEN ---
-      - conditions: [{ condition: trigger, id: morning }]
-        sequence:
-          - delay: { seconds: "{{ morning_random_delay }}" }
-          - if:
-              - condition: template
-                value_template: "{{ (expand(morning_covers_list)|list)|length > 0 }}"
-            then:
-              - repeat:
-                  for_each: !input covers_morning
-                  sequence:
-                    - service: cover.open_cover
-                      target: { entity_id: "{{ repeat.item }}" }
-                    - delay: { seconds: "{{ cover_gap }}" }
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ notify_on }}"
-                sequence:
-                  - service: "{{ notify_srv }}"
-                    data:
-                      message: >
-                        🏖️ Urlaub – Morgenroutine:
-                        geöffnet (geplant) zwischen {{ morning_start }}–{{ morning_end }},
-                        tatsächlicher Start {{ now().strftime('%H:%M') }}.
-                        Jalousien: {{ morning_covers_names }}
-
-      # --- ABEND ---
-      - conditions: [{ condition: trigger, id: evening }]
-        sequence:
-          - delay: { seconds: "{{ evening_random_delay }}" }
-          # Jalousien schließen
-          - if:
-              - condition: template
-                value_template: "{{ (expand(evening_covers_list)|list)|length > 0 }}"
-            then:
-              - repeat:
-                  for_each: !input covers_evening
-                  sequence:
-                    - service: cover.close_cover
-                      target: { entity_id: "{{ repeat.item }}" }
-                    - delay: { seconds: "{{ cover_gap }}" }
-          # Abendlichter zufällig
-          - variables:
-              light_duration_sec: >
-                {% set min_s = (light_min|int)*60 %}
-                {% set max_s = (light_max|int)*60 %}
-                {{ range(min_s, max_s) | random }}
-          - repeat:
-              for_each: !input lights_evening
-              sequence:
-                - variables: { coin: "{{ range(1,101) | random }}" }
-                - choose:
-                    - conditions:
-                        - condition: template
-                          value_template: "{{ coin <= (light_chance|int) }}"
-                      sequence:
-                        - service: light.turn_on
-                          target: { entity_id: "{{ repeat.item }}" }
-                        - delay: { seconds: "{{ range(10, 120) | random }}" }
-                        - delay: { seconds: "{{ light_duration_sec }}" }
-                        - service: light.turn_off
-                          target: { entity_id: "{{ repeat.item }}" }
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ notify_on }}"
-                sequence:
-                  - service: "{{ notify_srv }}"
-                    data:
-                      message: >
-                        🌙 Urlaub – Abendroutine gestartet {{ now().strftime('%H:%M') }}.
-                        Jalousien geschlossen: {{ evening_covers_names }}.
-                        Lichtsimulation aktiv zwischen {{ evening_start }}–{{ evening_end }}
-                        (Chance {{ light_chance }}%, Dauer {{ light_min }}–{{ light_max }} min).
-
-      # --- WETTER ---
-      - conditions:
-          - condition: trigger
-            id: weather_tick
-          - condition: template
-            value_template: "{{ enable_weather }}"
-        sequence:
-          - variables:
-              t_out: >
-                {% if outdoor_temp_id %}{{ states(outdoor_temp_id)|float(0) }}{% else %}0{% endif %}
-              lx: >
-                {% if illuminance_sensor_id %}{{ states(illuminance_sensor_id)|float(0) }}{% else %}0{% endif %}
-              elev: "{{ state_attr('sun.sun','elevation') | float(0) }}"
-              cond: >
-                {% if weather_entity_id %}{{ states(weather_entity_id) | string }}{% else %}''{% endif %}
-              is_hot_sunny: >
-                {{ t_out >= (close_temp|float) or (cond in ['sunny','clear','hot']) or (lx >= (close_lux|float(0))) }}
-              is_day: "{{ elev >= (min_elev|float) }}"
-              should_close: "{{ is_day and is_hot_sunny }}"
-              should_reopen: "{{ (not is_hot_sunny) or t_out <= (reopen_temp|float) or elev < (min_elev|float) }}"
-          - choose:
-
-              # Schließen bei Hitze/Sonne
-              - conditions: [{ condition: template, value_template: "{{ should_close }}" }]
-                sequence:
-                  - repeat:
-                      for_each: !input weather_covers
-                      sequence:
-                        - condition: template
-                          value_template: "{{ state_attr(repeat.item, 'current_position')|default(100)|int > 0 }}"
-                        - service: cover.close_cover
-                          target: { entity_id: "{{ repeat.item }}" }
-                        - delay: { seconds: "{{ cover_gap }}" }
-                  - choose:
-                      - conditions: [{ condition: template, value_template: "{{ notify_on }}" }]
-                        sequence:
-                          - service: "{{ notify_srv }}"
-                            data:
-                              message: >
-                                ☀️ Urlaub – Wetteraktion: Schließen ({{ now().strftime('%H:%M') }}).
-                                Bedingung: {{ 'Temp ' ~ t_out ~ '°C' }}{% if illuminance_sensor_id %}, Lux {{ lx|int }}{% endif %}{% if weather_entity_id %}, {{ cond }}{% endif %};
-                                Sonne ≥ {{ min_elev }}° → JA.
-                                Betroffen: {{ weather_covers_names }}
-
-              # Wieder öffnen
-              - conditions: [{ condition: template, value_template: "{{ should_reopen }}" }]
-                sequence:
-                  - repeat:
-                      for_each: !input weather_covers
-                      sequence:
-                        - choose:
-                            - conditions: [{ condition: template, value_template: "{{ reopen_mode == 'open_half' }}" }]
-                              sequence:
-                                - service: cover.set_cover_position
-                                  data: { position: 50 }
-                                  target: { entity_id: "{{ repeat.item }}" }
-                          default:
-                            - service: cover.open_cover
-                              target: { entity_id: "{{ repeat.item }}" }
-                        - delay: { seconds: "{{ cover_gap }}" }
-                  - choose:
-                      - conditions: [{ condition: template, value_template: "{{ notify_on }}" }]
-                        sequence:
-                          - service: "{{ notify_srv }}"
-                            data:
-                              message: >
-                                🌤️ Urlaub – Wetteraktion: Wieder öffnen ({{ now().strftime('%H:%M') }}).
-                                Grund: Bedingungen entspannt (Temp {{ t_out }}°C{% if illuminance_sensor_id %}, Lux {{ lx|int }}{% endif %}; Sonne < {{ min_elev }}° ODER unter {{ reopen_temp }}°C).
-                                Modus: {{ '50%' if reopen_mode == 'open_half' else 'voll' }}.
-                                Betroffen: {{ weather_covers_names }}
-
-    default: []
+        number:
+          min: 10
